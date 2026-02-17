@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+version: "2"
+run:
+  build-tags:
+    - unit_test
+    - integration_test
+    - e2e_test
+  modules-download-mode: readonly
+linters:
+  default: none
+  enable:
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - dogsled
+    - durationcheck
+    - errcheck
+    - errorlint
+    - errname
+    - exhaustive
+    - gochecknoinits
+    - gocognit
+    - gocritic
+    - gocyclo
+    - godoclint
+    - goheader
+    - goprintffuncname
+    - gosec
+    - govet
+    - importas
+    - ineffassign
+    - lll
+    - makezero
+    - misspell
+    - nakedret
+    - nilerr
+    - prealloc
+    - predeclared
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - wastedassign
+    - whitespace
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocognit:
+      min-complexity: 30
+    gocritic:
+      disabled-checks:
+        - singleCaseSwitch
+      enabled-tags:
+        - opinionated
+    lll:
+      line-length: 120
+    misspell:
+      locale: US
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
+  exclusions:
+    generated: strict
+    rules:
+      - linters:
+          - revive
+        text: "error-strings: error strings should not be capitalized or end with punctuation or a newline"
+      - linters:
+          - gosec
+        text: "G204:"
+        path: "test/.*"
+      - linters:
+          - gosec
+        text: "G304:"
+        path: "test/.*"
+issues:
+  # Value 0 means show all.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+    - golines
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/nieomylnieja/govydoc
+    gofumpt:
+      extra-rules: true
+    golines:
+      max-len: 120
+      shorten-comments: true
+  exclusions:
+    generated: strict

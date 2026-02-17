@@ -1,0 +1,129 @@
+{
+  "Name": "Teacher",
+  "Properties": [
+    {
+      "path": "$",
+      "typeInfo": {
+        "name": "Teacher",
+        "kind": "struct",
+        "package": "github.com/nieomylnieja/govydoc/internal/testmodels"
+      },
+      "typeDoc": "Teacher is a sample struct used for testing. Spoiler alert: it has [Student](https://pkg.go.dev/github.com/nieomylnieja/govydoc/internal/testmodels#Student). [Student.Name](https://pkg.go.dev/github.com/nieomylnieja/govydoc/internal/testmodels#Student.Name) is the name of the student.\n\nTeacher attends [moremodels.University](https://pkg.go.dev/github.com/nieomylnieja/govydoc/internal/testmodels/moremodels#University).",
+      "childrenPaths": [
+        "$.name",
+        "$.hobby",
+        "$.age",
+        "$.students",
+        "$.students[*]",
+        "$.university",
+        "$.stringer"
+      ]
+    },
+    {
+      "path": "$.name",
+      "typeInfo": {
+        "name": "string",
+        "kind": "string"
+      },
+      "values": [
+        "John"
+      ],
+      "rules": [
+        {
+          "description": "should be equal to 'John'",
+          "errorCode": "equal_to"
+        }
+      ],
+      "fieldDoc": "Name is the name of the teacher."
+    },
+    {
+      "path": "$.hobby",
+      "typeInfo": {
+        "name": "string",
+        "kind": "string"
+      },
+      "rules": [
+        {
+          "description": "property is forbidden",
+          "errorCode": "forbidden",
+          "conditions": [
+            "when above 30"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "$.age",
+      "typeInfo": {
+        "name": "int",
+        "kind": "int"
+      }
+    },
+    {
+      "path": "$.students",
+      "typeInfo": {
+        "name": "[]Student",
+        "kind": "[]struct",
+        "package": "github.com/nieomylnieja/govydoc/internal/testmodels"
+      },
+      "fieldDoc": "Students is a list of students."
+    },
+    {
+      "path": "$.students[*]",
+      "typeInfo": {
+        "name": "Student",
+        "kind": "struct",
+        "package": "github.com/nieomylnieja/govydoc/internal/testmodels"
+      },
+      "typeDoc": "Student is just a teacher! You must see [fmt.Stringer](https://pkg.go.dev/fmt#Stringer) though. Don't forget to visit [this site](https://example.com). Have you seen [Teacher](https://pkg.go.dev/github.com/nieomylnieja/govydoc/internal/testmodels#Teacher)?",
+      "deprecatedDoc": "Use Teacher instead.",
+      "childrenPaths": [
+        "$.students[*].age",
+        "$.students[*].name",
+        "$.students[*].oldName"
+      ]
+    },
+    {
+      "path": "$.students[*].age",
+      "typeInfo": {
+        "name": "int",
+        "kind": "int"
+      },
+      "fieldDoc": "Age is life!"
+    },
+    {
+      "path": "$.students[*].name",
+      "typeInfo": {
+        "name": "string",
+        "kind": "string"
+      },
+      "fieldDoc": "Some comment."
+    },
+    {
+      "path": "$.students[*].oldName",
+      "typeInfo": {
+        "name": "string",
+        "kind": "string"
+      },
+      "deprecatedDoc": "Use Name instead."
+    },
+    {
+      "path": "$.university",
+      "typeInfo": {
+        "name": "University",
+        "kind": "struct",
+        "package": "github.com/nieomylnieja/govydoc/internal/testmodels/moremodels"
+      },
+      "typeDoc": "University is a sample struct used for testing."
+    },
+    {
+      "path": "$.stringer",
+      "typeInfo": {
+        "name": "Stringer",
+        "kind": "interface",
+        "package": "fmt"
+      },
+      "typeDoc": "Stringer is implemented by any value that has a String method, which defines the “native” format for that value. The String method is used to print values passed as an operand to any format that accepts a string or to an unformatted printer such as [Print](https://pkg.go.dev/fmt#Print)."
+    }
+  ]
+}

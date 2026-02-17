@@ -1,0 +1,43 @@
+{
+  "allowCompoundWords": true,
+  "language": "en_US",
+  "dictionaries": [
+    "bash",
+    "css",
+    "golang",
+    "html",
+    "misc",
+    "softwareTerms",
+    "npm",
+    "typescript"
+  ],
+  "ignorePaths": [
+    ".vscode/",
+    ".idea/",
+    "**/node_modules/**",
+    "**/*.lock",
+    "package.json",
+    "go.mod",
+    "go.sum",
+    "go.work",
+    "go.work.sum"
+  ],
+  "ignoreRegExpList": [
+    "/\\|\\s+[T|G]{2,}\\s+\\|/g",
+    "/https?:\\/\\/.*/g",
+    "/github.*/g",
+    "/nolint.*/g",
+    "/nosec.*/g"
+  ],
+  "words": [
+    "devbox",
+    "gofumpt",
+    "goimports",
+    "golangci",
+    "golines",
+    "gosec",
+    "govulncheck",
+    "endef",
+    "govydoc"
+  ]
+}

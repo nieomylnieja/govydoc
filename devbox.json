@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/refs/heads/main/.schema/devbox.schema.json",
+  "packages": [
+    "govulncheck@1.1.4",
+    "gotools@0.34.0",
+    "go@1.26.0",
+    "markdownlint-cli@0.47.0",
+    "cspell@9.6.4",
+    "just@1.46.0",
+    "golangci-lint@2.9.0"
+  ],
+  "shell": {
+    "init_hook": [
+      "export GOROOT=$(go env GOROOT)"
+    ]
+  }
+}

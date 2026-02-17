@@ -1,0 +1,23 @@
+name: Run checks
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+      - name: Install devbox
+        uses: jetpack-io/devbox-install-action@v0.14.0
+        with:
+          enable-cache: true
+      - name: Run checks
+        run: devbox run -- just check
+      - name: Run tests
+        if: success() || failure()
+        run: devbox run -- just test
