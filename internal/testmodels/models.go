@@ -39,3 +39,30 @@ type Student struct {
 	// Deprecated: Use Name instead.
 	OldName string `json:"oldName"`
 }
+
+// SimpleStruct is a simple struct for testing.
+type SimpleStruct struct {
+	Value string `json:"value"`
+}
+
+// Address represents a physical address.
+type Address struct {
+	City  string `json:"city"`
+	State string `json:"state"`
+}
+
+// Person represents a person with an address.
+type Person struct {
+	Name    string  `json:"name"`
+	Address Address `json:"address"`
+}
+
+// ListStruct contains a list of items.
+type ListStruct struct {
+	Items []string `json:"items"`
+}
+
+// MapStruct contains a map of data.
+type MapStruct struct {
+	Data map[string]int `json:"data"`
+}

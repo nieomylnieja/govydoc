@@ -3,9 +3,10 @@ package govydoc
 import (
 	"reflect"
 
-	"github.com/nieomylnieja/govydoc/internal/godoc"
 	"github.com/nobl9/govy/pkg/govy"
 	"github.com/pkg/errors"
+
+	"github.com/nieomylnieja/govydoc/internal/godoc"
 )
 
 type ObjectDoc struct {
@@ -43,6 +44,7 @@ func (p PropertyDoc) key() string {
 // generateOptions contains options for configuring the behavior of the [Generate] function.
 type generateOptions struct {
 	govyPlanOptions []govy.PlanOption
+	filterPaths     []string
 }
 
 type GenerateOption func(options generateOptions) generateOptions
@@ -51,6 +53,15 @@ type GenerateOption func(options generateOptions) generateOptions
 func GenerateGovyOptions(govyOptions ...govy.PlanOption) GenerateOption {
 	return func(options generateOptions) generateOptions {
 		options.govyPlanOptions = append(options.govyPlanOptions, govyOptions...)
+		return options
+	}
+}
+
+// WithFilteredPaths specifies property paths that should be excluded from the generated documentation.
+// Paths use JSONPath notation (e.g., "$.organization", "$.metadata.internal").
+func WithFilteredPaths(paths ...string) GenerateOption {
+	return func(options generateOptions) generateOptions {
+		options.filterPaths = append(options.filterPaths, paths...)
 		return options
 	}
 }
@@ -75,19 +86,20 @@ func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (Objec
 
 	plan, err := govy.Plan(validator, options.govyPlanOptions...)
 	if err != nil {
-		return ObjectDoc{}, errors.Wrapf(err, "failed to generate %T", plan)
+		var t T
+		return ObjectDoc{}, errors.Wrapf(err, "failed to generate validation plan for %T", t)
 	}
 	objectDoc.extendWithValidationPlan(plan)
 
-	mergeDocs(objectDoc, goDoc)
-	return postProcessProperties(objectDoc,
+	mergeDocs(&objectDoc, goDoc)
+	return postProcessProperties(objectDoc, options.filterPaths,
 		removeEnumDeclaration,
 		extractDeprecatedInformation,
 		removeTrailingWhitespace,
 	), nil
 }
 
-func mergeDocs(objectDoc ObjectDoc, goDocs godoc.Docs) {
+func mergeDocs(objectDoc *ObjectDoc, goDocs godoc.Docs) {
 	for i, property := range objectDoc.Properties {
 		// Builtin type.
 		if property.TypeInfo.Package == "" {

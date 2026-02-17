@@ -6,15 +6,10 @@ import (
 	"strings"
 )
 
-// filterProperties is a list of property paths that should be filtered out from the documentation.
-var filterProperties = []string{
-	"$.organization",
-}
-
-func postProcessProperties(doc ObjectDoc, formatters ...propertyPostProcessor) ObjectDoc {
+func postProcessProperties(doc ObjectDoc, filterPaths []string, formatters ...propertyPostProcessor) ObjectDoc {
 	properties := make([]PropertyDoc, 0, len(doc.Properties))
 	for _, property := range doc.Properties {
-		if slices.Contains(filterProperties, property.Path) {
+		if slices.Contains(filterPaths, property.Path) {
 			continue
 		}
 		for _, formatter := range formatters {

@@ -37,7 +37,10 @@ func (d Doc) Key() string {
 }
 
 func NewParser() (*Parser, error) {
-	root := pathutils.FindModuleRoot()
+	root, err := pathutils.FindModuleRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to find module root")
+	}
 	// Load complete type information for the specified packages,
 	// along with type-annotated syntax.
 	conf := &packages.Config{
@@ -121,13 +124,50 @@ func (p *Parser) parse(goType reflect.Type, docs Docs) (*Doc, error) {
 		return &typeDoc, nil
 	}
 
-	structType, ok := decl.Specs[0].(*ast.TypeSpec).Type.(*ast.StructType)
+	// Check bounds and perform checked type assertions
+	if len(decl.Specs) == 0 {
+		return nil, errors.Errorf("no specs found in declaration for %s", name)
+	}
+	typeSpec, ok := decl.Specs[0].(*ast.TypeSpec)
+	if !ok {
+		return nil, errors.Errorf("expected *ast.TypeSpec for %s, got %T", name, decl.Specs[0])
+	}
+	structType, ok := typeSpec.Type.(*ast.StructType)
 	if !ok {
 		return nil, errors.Errorf("failed to parse %s struct type, expected ast.StructType", name)
 	}
 	typeDoc.StructFields = make(Docs, goType.NumField())
-	// If the type is a struct, we need to go over its fields.
-	for i, astField := range structType.Fields.List {
+
+	// Build a map of field names to AST fields for reliable matching.
+	// We cannot rely on index correspondence because:
+	// 1. AST fields with multiple names (e.g., "A, B int") create one ast.Field but multiple reflect fields
+	// 2. Embedded fields may have different ordering
+	astFieldsByName := make(map[string]*ast.Field)
+	for _, astField := range structType.Fields.List {
+		for _, fieldName := range astField.Names {
+			astFieldsByName[fieldName.Name] = astField
+		}
+		// Handle embedded fields (no names)
+		if len(astField.Names) == 0 && astField.Type != nil {
+			// For embedded fields, extract the type name
+			switch typ := astField.Type.(type) {
+			case *ast.Ident:
+				astFieldsByName[typ.Name] = astField
+			case *ast.SelectorExpr:
+				if ident, ok := typ.X.(*ast.Ident); ok {
+					astFieldsByName[ident.Name] = astField
+				}
+			case *ast.StarExpr:
+				// Handle *Embedded case
+				if ident, ok := typ.X.(*ast.Ident); ok {
+					astFieldsByName[ident.Name] = astField
+				}
+			}
+		}
+	}
+
+	// Iterate over reflect fields and match with AST fields by name
+	for i := 0; i < goType.NumField(); i++ {
 		goTypeField := goType.Field(i)
 		fieldDoc, err := p.parse(goTypeField.Type, docs)
 		if err != nil {
@@ -137,7 +177,10 @@ func (p *Parser) parse(goType reflect.Type, docs Docs) (*Doc, error) {
 		if fieldName == "" {
 			continue // Skip unexported fields.
 		}
-		fieldDoc.Doc = p.docCommentToMarkdown(pkg.commentParser, pkg.pkg.PkgPath, astField.Doc.Text())
+		// Look up the corresponding AST field by name
+		if astField, ok := astFieldsByName[goTypeField.Name]; ok {
+			fieldDoc.Doc = p.docCommentToMarkdown(pkg.commentParser, pkg.pkg.PkgPath, astField.Doc.Text())
+		}
 		typeDoc.StructFields[fieldName] = *fieldDoc
 	}
 	docs.add(typeDoc)
@@ -238,20 +281,33 @@ func (p *Parser) collectAllPackages(pkgs []*packages.Package) {
 	}
 }
 
-func checkForPackageErrors(pkgs []*packages.Package) (err error) {
+func checkForPackageErrors(pkgs []*packages.Package) error {
+	var errs []error
 	packages.Visit(pkgs, func(pkg *packages.Package) bool {
-		for _, err = range pkg.Errors {
-			err = errors.Wrapf(err, "package %s has reported an error", pkg.PkgPath)
-			return false
+		for _, pkgErr := range pkg.Errors {
+			errs = append(errs, errors.Wrapf(pkgErr, "package %s has reported an error", pkg.PkgPath))
 		}
 		mod := pkg.Module
 		if mod != nil && mod.Error != nil {
-			err = errors.New(mod.Error.Err)
-			return false
+			errs = append(errs, errors.Wrapf(errors.New(mod.Error.Err), "module %s has error", mod.Path))
 		}
-		return true
+		return true // Continue visiting all packages
 	}, nil)
-	return err
+
+	if len(errs) == 0 {
+		return nil
+	}
+	if len(errs) == 1 {
+		return errs[0]
+	}
+
+	// Format multiple errors clearly
+	var msg strings.Builder
+	msg.WriteString(errors.Errorf("encountered %d errors while loading packages", len(errs)).Error())
+	for i, err := range errs {
+		msg.WriteString(errors.Errorf("\n  %d. %v", i+1, err).Error())
+	}
+	return errors.New(msg.String())
 }
 
 func getStructFieldName(field reflect.StructField) string {

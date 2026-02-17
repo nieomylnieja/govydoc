@@ -16,7 +16,6 @@ func generateObjectDoc(goType reflect.Type) ObjectDoc {
 	objectDoc := ObjectDoc{
 		Properties: mapper.Properties,
 	}
-	objectDoc.Properties = mapper.Properties
 	// Add children paths to properties.
 	// The object mapper does not provide this information, but rather returns a flat list of properties.
 	for i, property := range objectDoc.Properties {
