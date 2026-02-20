@@ -87,6 +87,7 @@ func (p *Parser) Parse(goType reflect.Type) (Docs, error) {
 }
 
 func (p *Parser) parse(goType reflect.Type, docs Docs) (*Doc, error) {
+	// nolint:exhaustive // Only handle pointer and slice kinds; other kinds fall through
 	switch goType.Kind() {
 	case reflect.Pointer, reflect.Slice:
 		goType = goType.Elem()
@@ -98,15 +99,39 @@ func (p *Parser) parse(goType reflect.Type, docs Docs) (*Doc, error) {
 		Name:    name,
 		Package: pkgPath,
 	}
+
+	// Builtin types don't need further parsing
 	if pkgPath == "" {
-		// Builtin type, no need to parse.
 		return &typeDoc, nil
 	}
 
-	// Find the package and package-level object.
+	// Get package and parse type declaration
+	pkg, decl, err := p.getTypeDeclarationInfo(pkgPath, name)
+	if err != nil {
+		return nil, err
+	}
+	typeDoc.Doc = p.docCommentToMarkdown(pkg.commentParser, pkg.pkg.PkgPath, decl.Doc.Text())
+
+	// Non-struct types are done here
+	if goType.Kind() != reflect.Struct {
+		docs.add(typeDoc)
+		return &typeDoc, nil
+	}
+
+	// Parse struct fields
+	if err := p.parseStructFields(goType, &typeDoc, pkg, decl, docs); err != nil {
+		return nil, err
+	}
+
+	docs.add(typeDoc)
+	return &typeDoc, nil
+}
+
+// getTypeDeclarationInfo retrieves the package and AST declaration for a type
+func (p *Parser) getTypeDeclarationInfo(pkgPath, name string) (*goPackage, *ast.GenDecl, error) {
 	pkg := p.getPackageByPath(pkgPath)
 	if pkg == nil {
-		return nil, errors.Errorf("could not find %s package for type %s", pkgPath, name)
+		return nil, nil, errors.Errorf("could not find %s package for type %s", pkgPath, name)
 	}
 	if pkg.commentParser == nil {
 		pkg.commentParser = p.newCommentParserForPackage(pkg.pkg)
@@ -114,17 +139,40 @@ func (p *Parser) parse(goType reflect.Type, docs Docs) (*Doc, error) {
 
 	decl, err := p.findTypeDeclaration(pkg, name)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find %s declaration in %s pkg", name, pkgPath)
-	}
-	typeDoc.Doc = p.docCommentToMarkdown(pkg.commentParser, pkg.pkg.PkgPath, decl.Doc.Text())
-
-	// We're done for anything other than a struct.
-	if goType.Kind() != reflect.Struct {
-		docs.add(typeDoc)
-		return &typeDoc, nil
+		return nil, nil, errors.Wrapf(err, "failed to find %s declaration in %s pkg", name, pkgPath)
 	}
 
-	// Check bounds and perform checked type assertions
+	return pkg, decl, nil
+}
+
+// parseStructFields parses all fields of a struct type
+func (p *Parser) parseStructFields(
+	goType reflect.Type,
+	typeDoc *Doc,
+	pkg *goPackage,
+	decl *ast.GenDecl,
+	docs Docs,
+) error {
+	structType, err := p.extractStructType(decl, typeDoc.Name)
+	if err != nil {
+		return err
+	}
+
+	typeDoc.StructFields = make(Docs, goType.NumField())
+	astFieldsByName := p.buildASTFieldMap(structType)
+
+	// Parse each field
+	for i := 0; i < goType.NumField(); i++ {
+		if err := p.parseStructField(goType.Field(i), typeDoc, pkg, astFieldsByName, docs); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// extractStructType extracts and validates the struct type from AST declaration
+func (p *Parser) extractStructType(decl *ast.GenDecl, name string) (*ast.StructType, error) {
 	if len(decl.Specs) == 0 {
 		return nil, errors.Errorf("no specs found in declaration for %s", name)
 	}
@@ -136,55 +184,70 @@ func (p *Parser) parse(goType reflect.Type, docs Docs) (*Doc, error) {
 	if !ok {
 		return nil, errors.Errorf("failed to parse %s struct type, expected ast.StructType", name)
 	}
-	typeDoc.StructFields = make(Docs, goType.NumField())
+	return structType, nil
+}
 
-	// Build a map of field names to AST fields for reliable matching.
-	// We cannot rely on index correspondence because:
-	// 1. AST fields with multiple names (e.g., "A, B int") create one ast.Field but multiple reflect fields
-	// 2. Embedded fields may have different ordering
+// buildASTFieldMap creates a map from field names to AST fields for reliable matching.
+// We cannot rely on index correspondence because:
+// 1. AST fields with multiple names (e.g., "A, B int") create one ast.Field but multiple reflect fields
+// 2. Embedded fields may have different ordering
+func (p *Parser) buildASTFieldMap(structType *ast.StructType) map[string]*ast.Field {
 	astFieldsByName := make(map[string]*ast.Field)
 	for _, astField := range structType.Fields.List {
+		// Regular fields with names
 		for _, fieldName := range astField.Names {
 			astFieldsByName[fieldName.Name] = astField
 		}
 		// Handle embedded fields (no names)
-		if len(astField.Names) == 0 && astField.Type != nil {
-			// For embedded fields, extract the type name
-			switch typ := astField.Type.(type) {
-			case *ast.Ident:
-				astFieldsByName[typ.Name] = astField
-			case *ast.SelectorExpr:
-				if ident, ok := typ.X.(*ast.Ident); ok {
-					astFieldsByName[ident.Name] = astField
-				}
-			case *ast.StarExpr:
-				// Handle *Embedded case
-				if ident, ok := typ.X.(*ast.Ident); ok {
-					astFieldsByName[ident.Name] = astField
-				}
-			}
+		if len(astField.Names) == 0 {
+			p.addEmbeddedFieldToMap(astField, astFieldsByName)
 		}
+	}
+	return astFieldsByName
+}
+
+// addEmbeddedFieldToMap extracts the type name from an embedded field and adds it to the map
+func (p *Parser) addEmbeddedFieldToMap(astField *ast.Field, astFieldsByName map[string]*ast.Field) {
+	if astField.Type == nil {
+		return
 	}
 
-	// Iterate over reflect fields and match with AST fields by name
-	for i := 0; i < goType.NumField(); i++ {
-		goTypeField := goType.Field(i)
-		fieldDoc, err := p.parse(goTypeField.Type, docs)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse %s struct field %s", name, goTypeField.Name)
+	switch typ := astField.Type.(type) {
+	case *ast.Ident:
+		astFieldsByName[typ.Name] = astField
+	case *ast.SelectorExpr:
+		if ident, ok := typ.X.(*ast.Ident); ok {
+			astFieldsByName[ident.Name] = astField
 		}
-		fieldName := getStructFieldName(goTypeField)
-		if fieldName == "" {
-			continue // Skip unexported fields.
+	case *ast.StarExpr:
+		// Handle *Embedded case
+		if ident, ok := typ.X.(*ast.Ident); ok {
+			astFieldsByName[ident.Name] = astField
 		}
-		// Look up the corresponding AST field by name
-		if astField, ok := astFieldsByName[goTypeField.Name]; ok {
-			fieldDoc.Doc = p.docCommentToMarkdown(pkg.commentParser, pkg.pkg.PkgPath, astField.Doc.Text())
-		}
-		typeDoc.StructFields[fieldName] = *fieldDoc
 	}
-	docs.add(typeDoc)
-	return &typeDoc, nil
+}
+
+// parseStructField parses a single struct field
+func (p *Parser) parseStructField(goTypeField reflect.StructField, typeDoc *Doc, pkg *goPackage,
+	astFieldsByName map[string]*ast.Field, docs Docs,
+) error {
+	fieldDoc, err := p.parse(goTypeField.Type, docs)
+	if err != nil {
+		return errors.Wrapf(err, "failed to parse %s struct field %s", typeDoc.Name, goTypeField.Name)
+	}
+
+	fieldName := getStructFieldName(goTypeField)
+	if fieldName == "" {
+		return nil // Skip unexported fields
+	}
+
+	// Look up the corresponding AST field by name and extract doc comment
+	if astField, ok := astFieldsByName[goTypeField.Name]; ok {
+		fieldDoc.Doc = p.docCommentToMarkdown(pkg.commentParser, pkg.pkg.PkgPath, astField.Doc.Text())
+	}
+
+	typeDoc.StructFields[fieldName] = *fieldDoc
+	return nil
 }
 
 // findTypeDeclaration finds the ast.GenDecl for the given type declaration, specified by name.

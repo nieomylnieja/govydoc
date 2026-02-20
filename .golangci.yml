@@ -81,6 +81,16 @@ linters:
           - gosec
         text: "G304:"
         path: "test/.*"
+      # Exclude gosec warnings for test files (file permissions in temp directories)
+      - linters:
+          - gosec
+        text: "G301:|G302:|G306:"
+        path: ".*_test\\.go"
+      # Allow intentional use of deprecated types in tests
+      - linters:
+          - staticcheck
+        text: "SA1019:"
+        path: ".*_test\\.go"
 issues:
   # Value 0 means show all.
   max-issues-per-linter: 0

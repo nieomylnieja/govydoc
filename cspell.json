@@ -31,13 +31,20 @@
   ],
   "words": [
     "devbox",
+    "endef",
+    "godoc",
+    "Godoc",
     "gofumpt",
     "goimports",
     "golangci",
     "golines",
     "gosec",
+    "govy",
+    "Govy",
     "govulncheck",
-    "endef",
-    "govydoc"
+    "govydoc",
+    "mypkg",
+    "pkgs",
+    "Wrapf"
   ]
 }
