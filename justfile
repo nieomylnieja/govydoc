@@ -4,7 +4,6 @@ bin_dir := "./bin"
 scripts_dir := "./scripts"
 app_name := "govydoc"
 ldflags := "-s -w"
-
 print_step := 'printf -- "------\n%s...\n"'
 
 # Print this help message

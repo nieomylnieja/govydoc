@@ -1,6 +1,6 @@
 module github.com/nieomylnieja/govydoc
 
-go 1.26
+go 1.25
 
 require (
 	github.com/nobl9/govy v0.22.0-rc1

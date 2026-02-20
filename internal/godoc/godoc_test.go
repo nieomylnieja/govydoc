@@ -1,7 +1,9 @@
 package godoc
 
 import (
+	"maps"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,15 +25,11 @@ func TestNewParser(t *testing.T) {
 		parser, err := NewParser()
 		require.NoError(t, err)
 
-		// Verify test packages are loaded
-		found := false
-		for path := range parser.pkgs {
-			if path == "github.com/nieomylnieja/govydoc/internal/testmodels" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "testmodels package should be loaded")
+		loaded := slices.ContainsFunc(
+			slices.Collect(maps.Keys(parser.pkgs)),
+			func(path string) bool { return path == "github.com/nieomylnieja/govydoc/internal/testmodels" },
+		)
+		assert.True(t, loaded, "testmodels package should be loaded")
 	})
 }
 
@@ -95,11 +93,9 @@ func TestParser_Parse(t *testing.T) {
 		// Verify University type from moremodels package is parsed
 		uniKey := "github.com/nieomylnieja/govydoc/internal/testmodels/moremodels.University"
 		uniDoc, found := docs[uniKey]
-		assert.True(t, found, "University from moremodels should be parsed")
-		if found {
-			assert.Equal(t, "University", uniDoc.Name)
-			assert.Equal(t, "github.com/nieomylnieja/govydoc/internal/testmodels/moremodels", uniDoc.Package)
-		}
+		require.True(t, found, "University from moremodels should be parsed")
+		assert.Equal(t, "University", uniDoc.Name)
+		assert.Equal(t, "github.com/nieomylnieja/govydoc/internal/testmodels/moremodels", uniDoc.Package)
 	})
 
 	t.Run("returns error for builtin types", func(t *testing.T) {
@@ -225,10 +221,8 @@ func TestParser_getPackageByPath(t *testing.T) {
 
 	t.Run("finds existing package", func(t *testing.T) {
 		pkg := parser.getPackageByPath("github.com/nieomylnieja/govydoc/internal/testmodels")
-		assert.NotNil(t, pkg)
-		if pkg != nil {
-			assert.Equal(t, "github.com/nieomylnieja/govydoc/internal/testmodels", pkg.pkg.PkgPath)
-		}
+		require.NotNil(t, pkg)
+		assert.Equal(t, "github.com/nieomylnieja/govydoc/internal/testmodels", pkg.pkg.PkgPath)
 	})
 
 	t.Run("returns nil for non-existent package", func(t *testing.T) {
@@ -250,19 +244,16 @@ func TestParser_Parse_InterfaceType(t *testing.T) {
 		// fmt.Stringer should be in the docs
 		stringerKey := "fmt.Stringer"
 		stringerDoc, found := docs[stringerKey]
-		if found {
-			assert.Equal(t, "Stringer", stringerDoc.Name)
-			assert.Equal(t, "fmt", stringerDoc.Package)
-		}
+		require.True(t, found)
+		assert.Equal(t, "Stringer", stringerDoc.Name)
+		assert.Equal(t, "fmt", stringerDoc.Package)
 	})
 }
 
 func TestCheckForPackageErrors(t *testing.T) {
 	t.Run("returns nil for packages without errors", func(t *testing.T) {
-		// This test verifies the function works with real loaded packages
 		parser, err := NewParser()
 		require.NoError(t, err)
 		assert.NotNil(t, parser)
-		// If NewParser succeeds, it means checkForPackageErrors returned nil
 	})
 }
