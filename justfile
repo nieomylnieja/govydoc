@@ -2,7 +2,7 @@ set shell := ["bash", "-c"]
 
 bin_dir := "./bin"
 scripts_dir := "./scripts"
-app_name := "x-repo-name"
+app_name := "govydoc"
 ldflags := "-s -w"
 print_step := 'printf -- "------\n%s...\n"'
 
@@ -25,33 +25,8 @@ update-devbox:
     @{{ print_step }} "Update packages managed by devbox"
     devbox update
 
-# Bootstrap the project from the template
-bootstrap:
-    cd bootstrap && go run .
-
-# Run bootstrap tests
-test-bootstrap:
-    @{{ print_step }} "Running bootstrap tests"
-    cd bootstrap && go test -cover ./...
-
-# Build x-repo-name binary
-build:
-    @{{ print_step }} "Building binary"
-    mkdir -p {{ bin_dir }}
-    go build -ldflags="{{ ldflags }}" -o {{ bin_dir }}/{{ app_name }} ./cmd/{{ app_name }}
-
-# Install x-repo-name binary
-install:
-    @{{ print_step }} "Installing binary"
-    go install -ldflags="{{ ldflags }}" ./cmd/{{ app_name }}
-
-# Build and release the binaries
-release:
-    @{{ print_step }} "Releasing binary"
-    goreleaser release --snapshot --clean
-
 # Run all unit tests
-test: test-bootstrap
+test:
     @{{ print_step }} "Running unit tests"
     go test -race -cover ./...
 

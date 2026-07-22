@@ -1,3 +1,3 @@
-module github.com/x-github-account-name/x-repo-name
+module github.com/nieomylnieja/govydoc
 
 go 1.26

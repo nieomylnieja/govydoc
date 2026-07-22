@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea to help us improve the x-repo-name.
+about: Suggest an idea to help us improve the govydoc.
 title: "[FEAT]"
 labels: enhancement
 assignees: ''

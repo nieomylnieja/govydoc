@@ -95,7 +95,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/x-github-account-name/x-repo-name
+        - github.com/nieomylnieja/govydoc
     gofumpt:
       extra-rules: true
     golines:
