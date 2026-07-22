@@ -10,67 +10,45 @@ import (
 	"github.com/nieomylnieja/govydoc/internal/godoc"
 )
 
+// ObjectDoc describes a Go type, its properties, and its validation documentation.
 type ObjectDoc struct {
 	Name       string        `json:"name"`
 	Properties []PropertyDoc `json:"properties"`
-	Examples   []Example     `json:"examples,omitempty"`
+	Examples   []Example     `json:"examples,omitempty,omitzero"`
 	Doc        string        `json:"doc,omitempty"`
 }
 
+// Example describes a named usage example included in generated documentation.
 type Example struct {
 	Name    string `json:"name"`
 	Content string `json:"content"`
 }
 
+// PropertyDoc combines a govy property plan with its Go source documentation.
 type PropertyDoc struct {
 	govy.PropertyPlan
-	// TypeDoc holds the documentation for the given type.
-	// For instance, if property is an object of type X,
-	// the TypeDoc will contain the X's documentation.
+	// TypeDoc contains the documentation for the property's Go type.
 	TypeDoc string `json:"typeDoc,omitempty"`
-	// FieldDoc holds the inline documentation which was provided on the struct field level.
+	// FieldDoc contains the documentation attached to the struct field.
 	FieldDoc string `json:"fieldDoc,omitempty"`
-	// DeprecatedDoc holds property's "Deprecated:" comment contents.
-	DeprecatedDoc string   `json:"deprecatedDoc,omitempty"`
-	ChildrenPaths []string `json:"childrenPaths,omitempty"`
+	// DeprecatedDoc contains the text following a Deprecated marker.
+	DeprecatedDoc string `json:"deprecatedDoc,omitempty"`
+	// ChildrenPaths contains the JSON paths of the property's immediate children.
+	ChildrenPaths []string `json:"childrenPaths,omitempty,omitzero"`
 }
 
-func (p PropertyDoc) key() string {
-	if p.TypeInfo.Package == "" {
-		return p.TypeInfo.Name
-	}
-	return p.TypeInfo.Package + "." + p.TypeInfo.Name
-}
+// GenerateOption configures [Generate].
+type GenerateOption func(options generateOptions) generateOptions
 
-// generateOptions contains options for configuring the behavior of the [Generate] function.
 type generateOptions struct {
 	govyPlanOptions []govy.PlanOption
 	filterPaths     []jsonpath.Path
 }
 
-type GenerateOption func(options generateOptions) generateOptions
-
-// GenerateGovyOptions allows you to provide [govy.PlanOption] to the internally called [govy.Plan].
-func GenerateGovyOptions(govyOptions ...govy.PlanOption) GenerateOption {
-	return func(options generateOptions) generateOptions {
-		options.govyPlanOptions = append(options.govyPlanOptions, govyOptions...)
-		return options
-	}
-}
-
-// WithFilteredPaths specifies property paths that should be excluded from the generated documentation.
-// Paths use JSONPath notation (e.g., "$.organization", "$.metadata.internal").
-func WithFilteredPaths(paths ...string) GenerateOption {
-	return func(options generateOptions) generateOptions {
-		for _, path := range paths {
-			options.filterPaths = append(options.filterPaths, jsonpath.Parse(path))
-		}
-		return options
-	}
-}
-
+// Generate returns documentation for the type handled by validator.
+// It returns an error when source documentation or the govy validation plan cannot be generated.
 func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (ObjectDoc, error) {
-	typ := reflect.TypeOf(*new(T))
+	typ := reflect.TypeFor[T]()
 
 	options := generateOptions{}
 	for _, opt := range opts {
@@ -80,31 +58,57 @@ func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (Objec
 	objectDoc := generateObjectDoc(typ)
 	goDocParser, err := godoc.NewParser()
 	if err != nil {
-		return ObjectDoc{}, err
+		return ObjectDoc{}, fmt.Errorf("failed to create Go documentation parser: %w", err)
 	}
 	goDoc, err := goDocParser.Parse(typ)
 	if err != nil {
-		return ObjectDoc{}, err
+		return ObjectDoc{}, fmt.Errorf("failed to parse documentation for %s: %w", typ, err)
 	}
 
 	plan, err := govy.Plan(validator, options.govyPlanOptions...)
 	if err != nil {
-		var t T
-		return ObjectDoc{}, fmt.Errorf("failed to generate validation plan for %T: %w", t, err)
+		return ObjectDoc{}, fmt.Errorf("failed to generate validation plan for %s: %w", typ, err)
 	}
 	objectDoc.extendWithValidationPlan(plan)
 
 	mergeDocs(&objectDoc, goDoc)
-	return postProcessProperties(objectDoc, options.filterPaths,
+	objectDoc = postProcessProperties(
+		objectDoc,
+		options.filterPaths,
 		removeEnumDeclaration,
 		extractDeprecatedInformation,
 		removeTrailingWhitespace,
-	), nil
+	)
+	return objectDoc, nil
+}
+
+// GenerateGovyOptions returns an option that passes govyOptions to [govy.Plan].
+func GenerateGovyOptions(govyOptions ...govy.PlanOption) GenerateOption {
+	return func(options generateOptions) generateOptions {
+		options.govyPlanOptions = append(options.govyPlanOptions, govyOptions...)
+		return options
+	}
+}
+
+// WithFilteredPaths returns an option that excludes the supplied JSON paths from generated documentation.
+func WithFilteredPaths(paths ...string) GenerateOption {
+	return func(options generateOptions) generateOptions {
+		for _, path := range paths {
+			options.filterPaths = append(options.filterPaths, jsonpath.Parse(path))
+		}
+		return options
+	}
+}
+
+func (p PropertyDoc) key() string {
+	if p.TypeInfo.Package == "" {
+		return p.TypeInfo.Name
+	}
+	return p.TypeInfo.Package + "." + p.TypeInfo.Name
 }
 
 func mergeDocs(objectDoc *ObjectDoc, goDocs godoc.Docs) {
 	for i, property := range objectDoc.Properties {
-		// Builtin type.
 		if property.TypeInfo.Package == "" {
 			continue
 		}
@@ -126,7 +130,6 @@ func mergeDocs(objectDoc *ObjectDoc, goDocs godoc.Docs) {
 	}
 }
 
-// extendWithValidationPlan extends [ObjectDoc.Properties] with [govy.ValidatorPlan] results.
 func (o *ObjectDoc) extendWithValidationPlan(plan *govy.ValidatorPlan) {
 	o.Name = plan.Name
 	for _, propPlan := range plan.Properties {

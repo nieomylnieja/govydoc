@@ -15,7 +15,7 @@ type Teacher struct {
 	// Name is the name of the teacher.
 	Name  string `json:"name"`
 	Hobby string `json:"hobby"`
-	Age   int    `json:"age"` // Age is the age of the teacher. Note: This is no ta valid doc string.
+	Age   int    `json:"age"` // Age is the age of the teacher. This is not a valid doc comment.
 	// Students is a list of students.
 	Students   []Student             `json:"students"`
 	University moremodels.University `json:"university"` // University is the university of the teacher.

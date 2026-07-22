@@ -2,10 +2,18 @@ package govydoc
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/nobl9/govy/pkg/jsonpath"
 )
+
+var (
+	enumDeclarationRegex = regexp.MustCompile(`(?s)ENUM(.*)`)
+	deprecatedRegex      = regexp.MustCompile(`(?m)^Deprecated:\s*(.*)$`)
+)
+
+type propertyPostProcessor func(doc PropertyDoc) PropertyDoc
 
 func postProcessProperties(doc ObjectDoc, filterPaths []jsonpath.Path, formatters ...propertyPostProcessor) ObjectDoc {
 	properties := make([]PropertyDoc, 0, len(doc.Properties))
@@ -23,38 +31,22 @@ func postProcessProperties(doc ObjectDoc, filterPaths []jsonpath.Path, formatter
 }
 
 func containsPath(paths []jsonpath.Path, path jsonpath.Path) bool {
-	for _, candidate := range paths {
-		if candidate.Equal(path) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(paths, func(candidate jsonpath.Path) bool {
+		return candidate.Equal(path)
+	})
 }
 
-// propertyPostProcessor is a function type that post-processes PropertyDoc.
-// It can be used to apply additional formatting to the property documentation or add more details to the doc.
-type propertyPostProcessor func(doc PropertyDoc) PropertyDoc
-
-var (
-	enumDeclarationRegex = regexp.MustCompile(`(?s)ENUM(.*)`)
-	deprecatedRegex      = regexp.MustCompile(`(?m)^Deprecated:\s*(.*)$`)
-)
-
-// removeEnumDeclaration removes ENUM (used with go-enum generator) declarations from the code docs.
 func removeEnumDeclaration(doc PropertyDoc) PropertyDoc {
 	doc.TypeDoc = enumDeclarationRegex.ReplaceAllString(doc.TypeDoc, "")
 	return doc
 }
 
-// removeTrailingWhitespace removes trailing whitespace from the docs.
 func removeTrailingWhitespace(doc PropertyDoc) PropertyDoc {
 	doc.TypeDoc = strings.TrimSpace(doc.TypeDoc)
 	doc.FieldDoc = strings.TrimSpace(doc.FieldDoc)
 	return doc
 }
 
-// extractDeprecatedInformation extracts deprecated information from the docs
-// and sets PropertyDoc.DeprecatedDoc accordingly.
 func extractDeprecatedInformation(doc PropertyDoc) PropertyDoc {
 	switch {
 	case deprecatedRegex.MatchString(doc.TypeDoc):
