@@ -13,9 +13,6 @@ import (
 	"github.com/nieomylnieja/govydoc/internal/testmodels"
 )
 
-//go:embed testdata/generate_output.json
-var expectedGenerateOutput []byte
-
 func TestGenerate(t *testing.T) {
 	validator := govy.New(
 		govy.For(func(t testmodels.Teacher) string { return t.Name }).
@@ -31,8 +28,7 @@ func TestGenerate(t *testing.T) {
 	actual, err := Generate(validator)
 	require.NoError(t, err)
 	var expected ObjectDoc
-	err = json.Unmarshal(expectedGenerateOutput, &expected)
-	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(expectedGenerateOutput, &expected))
 
 	if !assert.JSONEq(t, mustMarshalJSON(t, expected), mustMarshalJSON(t, actual)) {
 		data, err := json.MarshalIndent(actual, "", "  ")
@@ -41,66 +37,43 @@ func TestGenerate(t *testing.T) {
 	}
 }
 
-func mustMarshalJSON(t *testing.T, v any) string {
-	t.Helper()
-	data, err := json.Marshal(v)
-	require.NoError(t, err)
-	return string(data)
-}
-
 func TestPropertyDoc_key(t *testing.T) {
-	tests := []struct {
-		name     string
-		prop     PropertyDoc
+	t.Parallel()
+
+	tests := map[string]struct {
+		property PropertyDoc
 		expected string
 	}{
-		{
-			name: "builtin type without package",
-			prop: PropertyDoc{
-				PropertyPlan: govy.PropertyPlan{
-					TypeInfo: govy.TypeInfo{Name: "string", Package: ""},
-				},
-			},
+		"built-in string": {
+			property: PropertyDoc{PropertyPlan: govy.PropertyPlan{
+				TypeInfo: govy.TypeInfo{Name: "string"},
+			}},
 			expected: "string",
 		},
-		{
-			name: "builtin int type",
-			prop: PropertyDoc{
-				PropertyPlan: govy.PropertyPlan{
-					TypeInfo: govy.TypeInfo{Name: "int", Package: ""},
+		"custom type": {
+			property: PropertyDoc{PropertyPlan: govy.PropertyPlan{
+				TypeInfo: govy.TypeInfo{
+					Name:    "Teacher",
+					Package: "github.com/nieomylnieja/govydoc/internal/testmodels",
 				},
-			},
-			expected: "int",
-		},
-		{
-			name: "custom type with package",
-			prop: PropertyDoc{
-				PropertyPlan: govy.PropertyPlan{
-					TypeInfo: govy.TypeInfo{
-						Name:    "Teacher",
-						Package: "github.com/nieomylnieja/govydoc/internal/testmodels",
-					},
-				},
-			},
+			}},
 			expected: "github.com/nieomylnieja/govydoc/internal/testmodels.Teacher",
 		},
-		{
-			name: "slice of custom type",
-			prop: PropertyDoc{
-				PropertyPlan: govy.PropertyPlan{
-					TypeInfo: govy.TypeInfo{
-						Name:    "[]Teacher",
-						Package: "github.com/nieomylnieja/govydoc/internal/testmodels",
-					},
+		"slice of custom type": {
+			property: PropertyDoc{PropertyPlan: govy.PropertyPlan{
+				TypeInfo: govy.TypeInfo{
+					Name:    "[]Teacher",
+					Package: "github.com/nieomylnieja/govydoc/internal/testmodels",
 				},
-			},
+			}},
 			expected: "github.com/nieomylnieja/govydoc/internal/testmodels.[]Teacher",
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expected, tc.prop.key())
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, test.expected, test.property.key())
 		})
 	}
 }
@@ -113,56 +86,34 @@ func TestWithFilteredPaths(t *testing.T) {
 		govy.For(func(t testmodels.Teacher) string { return t.Hobby }).
 			WithName("hobby").
 			Rules(rules.EQ("reading")),
-	).WithName("Teacher")
+	).
+		WithName("Teacher")
 
-	t.Run("filters specified paths", func(t *testing.T) {
+	t.Run("one path", func(t *testing.T) {
 		doc, err := Generate(validator, WithFilteredPaths("$.hobby"))
 		require.NoError(t, err)
 
-		// Verify hobby property is filtered out
-		for _, prop := range doc.Properties {
-			assert.NotEqual(t, "$.hobby", prop.Path.String(), "hobby should be filtered out")
-		}
-
-		// Verify other properties still exist
-		found := false
-		for _, prop := range doc.Properties {
-			if prop.Path.String() == "$.name" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "name property should still exist")
+		paths := propertyPaths(doc)
+		assert.NotContains(t, paths, "$.hobby")
+		assert.Contains(t, paths, "$.name")
 	})
 
-	t.Run("filters multiple paths", func(t *testing.T) {
+	t.Run("multiple paths", func(t *testing.T) {
 		doc, err := Generate(validator, WithFilteredPaths("$.hobby", "$.name"))
 		require.NoError(t, err)
 
-		// Verify both properties are filtered out
-		for _, prop := range doc.Properties {
-			assert.NotEqual(t, "$.hobby", prop.Path.String())
-			assert.NotEqual(t, "$.name", prop.Path.String())
-		}
+		paths := propertyPaths(doc)
+		assert.NotContains(t, paths, "$.hobby")
+		assert.NotContains(t, paths, "$.name")
 	})
 
-	t.Run("no filtering when no paths specified", func(t *testing.T) {
+	t.Run("no paths", func(t *testing.T) {
 		doc, err := Generate(validator)
 		require.NoError(t, err)
 
-		// Should have both properties
-		hasName := false
-		hasHobby := false
-		for _, prop := range doc.Properties {
-			if prop.Path.String() == "$.name" {
-				hasName = true
-			}
-			if prop.Path.String() == "$.hobby" {
-				hasHobby = true
-			}
-		}
-		assert.True(t, hasName, "name property should exist")
-		assert.True(t, hasHobby, "hobby property should exist")
+		paths := propertyPaths(doc)
+		assert.Contains(t, paths, "$.name")
+		assert.Contains(t, paths, "$.hobby")
 	})
 }
 
@@ -171,36 +122,35 @@ func TestGenerateGovyOptions(t *testing.T) {
 		govy.For(func(t testmodels.Teacher) string { return t.Name }).
 			WithName("name").
 			Rules(rules.EQ("John")),
-	).WithName("Teacher")
+	).
+		WithName("Teacher")
 
-	t.Run("passes options to govy.Plan", func(t *testing.T) {
-		// This test verifies the option is passed through correctly
-		// The actual behavior depends on govy implementation
-		doc, err := Generate(validator, GenerateGovyOptions())
-		require.NoError(t, err)
-		assert.Equal(t, "Teacher", doc.Name)
-	})
+	doc, err := Generate(validator, GenerateGovyOptions())
+
+	require.NoError(t, err)
+	assert.Equal(t, "Teacher", doc.Name)
 }
 
 func TestGenerate_EmptyValidator(t *testing.T) {
 	validator := govy.New[testmodels.Teacher]().WithName("Teacher")
 
 	doc, err := Generate(validator)
+
 	require.NoError(t, err)
 	assert.Equal(t, "Teacher", doc.Name)
-	// Should still have properties from reflection, even without validation rules
 	assert.NotEmpty(t, doc.Properties)
 }
 
 func TestGenerate_PointerType(t *testing.T) {
-	// Test that Generate handles pointer types correctly
 	validator := govy.New(
-		govy.For(func(s testmodels.SimpleStruct) string { return s.Value }).
+		govy.For(func(s *testmodels.SimpleStruct) string { return s.Value }).
 			WithName("value").
 			Rules(rules.EQ("test")),
-	).WithName("SimpleStruct")
+	).
+		WithName("SimpleStruct")
 
 	doc, err := Generate(validator)
+
 	require.NoError(t, err)
 	assert.Equal(t, "SimpleStruct", doc.Name)
 	assert.NotEmpty(t, doc.Properties)
@@ -211,63 +161,54 @@ func TestGenerate_NestedStructs(t *testing.T) {
 		govy.For(func(p testmodels.Person) string { return p.Name }).
 			WithName("name").
 			Rules(rules.EQ("John")),
-	).WithName("Person")
+	).
+		WithName("Person")
 
 	doc, err := Generate(validator)
+
 	require.NoError(t, err)
 	assert.Equal(t, "Person", doc.Name)
-
-	// Verify nested properties exist
-	hasCity := false
-	hasState := false
-	for _, prop := range doc.Properties {
-		if prop.Path.String() == "$.address.city" {
-			hasCity = true
-		}
-		if prop.Path.String() == "$.address.state" {
-			hasState = true
-		}
-	}
-	assert.True(t, hasCity, "nested city property should exist")
-	assert.True(t, hasState, "nested state property should exist")
+	paths := propertyPaths(doc)
+	assert.Contains(t, paths, "$.address.city")
+	assert.Contains(t, paths, "$.address.state")
 }
 
 func TestGenerate_SliceTypes(t *testing.T) {
 	validator := govy.New[testmodels.ListStruct]().WithName("ListStruct")
 
 	doc, err := Generate(validator)
+
 	require.NoError(t, err)
 	assert.Equal(t, "ListStruct", doc.Name)
-
-	// Verify slice property exists
-	found := false
-	for _, prop := range doc.Properties {
-		if prop.Path.String() == "$.items[*]" {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "slice property should exist")
+	assert.Contains(t, propertyPaths(doc), "$.items[*]")
 }
 
 func TestGenerate_MapTypes(t *testing.T) {
 	validator := govy.New[testmodels.MapStruct]().WithName("MapStruct")
 
 	doc, err := Generate(validator)
+
 	require.NoError(t, err)
 	assert.Equal(t, "MapStruct", doc.Name)
+	paths := propertyPaths(doc)
+	assert.Contains(t, paths, "$.data.*~")
+	assert.Contains(t, paths, "$.data.*")
+}
 
-	// Verify map properties exist
-	hasMapKey := false
-	hasMapValue := false
-	for _, prop := range doc.Properties {
-		if prop.Path.String() == "$.data.*~" {
-			hasMapKey = true
-		}
-		if prop.Path.String() == "$.data.*" {
-			hasMapValue = true
-		}
+//go:embed testdata/generate_output.json
+var expectedGenerateOutput []byte
+
+func mustMarshalJSON(t *testing.T, value any) string {
+	t.Helper()
+	data, err := json.Marshal(value)
+	require.NoError(t, err)
+	return string(data)
+}
+
+func propertyPaths(doc ObjectDoc) []string {
+	paths := make([]string, 0, len(doc.Properties))
+	for _, property := range doc.Properties {
+		paths = append(paths, property.Path.String())
 	}
-	assert.True(t, hasMapKey, "map key property should exist")
-	assert.True(t, hasMapValue, "map value property should exist")
+	return paths
 }
