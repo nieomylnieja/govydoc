@@ -1,9 +1,6 @@
 package typeinfo
 
-import (
-	"fmt"
-	"reflect"
-)
+import "reflect"
 
 // TypeInfo stores the Go type information.
 type TypeInfo struct {
@@ -12,24 +9,13 @@ type TypeInfo struct {
 	Package string
 }
 
-// Get returns the information for the [reflect.Type].
-// It returns TypeInfo containing the type name (without package prefix) and package path separately.
-// Strips pointer indicators from type names.
-// Package field is empty for built-in types.
-//
-// Special handling for slices of custom types preserves both the slice notation and the package information.
-// Instead of having:
-//
-//	TypeInfo{Name: "[]mypkg.Bar"}
-//
-// It will produce:
-//
-//	TypeInfo{Name: "[]Bar", Package: ".../mypkg"}.
+// Get returns information about typ with pointer layers removed.
+// Built-in types have an empty package, while slices of named types keep the slice notation in their name.
 func Get(typ reflect.Type) TypeInfo {
 	if typ == nil {
 		return TypeInfo{}
 	}
-	if typ.Kind() == reflect.Pointer {
+	for typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
 	result := TypeInfo{
@@ -53,9 +39,9 @@ func Get(typ reflect.Type) TypeInfo {
 func getKindString(typ reflect.Type) string {
 	switch typ.Kind() {
 	case reflect.Map:
-		return fmt.Sprintf("map[%s]%s", getKindString(typ.Key()), getKindString(typ.Elem()))
+		return "map[" + getKindString(typ.Key()) + "]" + getKindString(typ.Elem())
 	case reflect.Slice:
-		return fmt.Sprintf("[]%s", getKindString(typ.Elem()))
+		return "[]" + getKindString(typ.Elem())
 	default:
 		return typ.Kind().String()
 	}

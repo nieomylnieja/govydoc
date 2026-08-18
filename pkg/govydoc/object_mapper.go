@@ -10,42 +10,41 @@ import (
 	"github.com/nieomylnieja/govydoc/internal/typeinfo"
 )
 
+type objectMapper struct {
+	properties []PropertyDoc
+}
+
 func newObjectMapper() *objectMapper {
 	return &objectMapper{}
 }
 
-type objectMapper struct {
-	Properties []PropertyDoc
-}
-
-func (o *objectMapper) Map(typ reflect.Type, path jsonpath.Path) {
-	if typ.Kind() == reflect.Pointer {
+func (o *objectMapper) mapType(typ reflect.Type, path jsonpath.Path) {
+	for typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
 
 	doc := PropertyDoc{}
 	doc.Path = path
 	doc = setTypeInfo(doc, typ)
-	o.Properties = append(o.Properties, doc)
+	o.properties = append(o.properties, doc)
 
 	switch typ.Kind() {
 	case reflect.Struct:
 		for _, field := range reflect.VisibleFields(typ) {
-			tags := strings.Split(field.Tag.Get("json"), ",")
-			if len(tags) == 0 {
+			if !field.IsExported() {
 				continue
 			}
-			name := tags[0]
+			name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
 			if name == "" || name == "-" {
 				continue
 			}
-			o.Map(field.Type, path.Name(name))
+			o.mapType(field.Type, path.Name(name))
 		}
 	case reflect.Slice:
-		o.Map(typ.Elem(), path.IndexWildcard())
+		o.mapType(typ.Elem(), path.IndexWildcard())
 	case reflect.Map:
-		o.Map(typ.Key(), path.KeyWildcard())
-		o.Map(typ.Elem(), path.ValueWildcard())
+		o.mapType(typ.Key(), path.KeyWildcard())
+		o.mapType(typ.Elem(), path.ValueWildcard())
 	default:
 	}
 }
