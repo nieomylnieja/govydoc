@@ -13,13 +13,7 @@ import (
 type ObjectDoc struct {
 	Name       string        `json:"name"`
 	Properties []PropertyDoc `json:"properties"`
-	Examples   []Example     `json:"examples,omitempty"`
 	Doc        string        `json:"doc,omitempty"`
-}
-
-type Example struct {
-	Name    string `json:"name"`
-	Content string `json:"content"`
 }
 
 type PropertyDoc struct {

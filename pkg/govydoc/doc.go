@@ -48,7 +48,6 @@
 //	doc, err := govydoc.Generate(
 //	    validator,
 //	    govydoc.WithFilteredPaths("$.internalField"),
-//	    govydoc.GenerateGovyOptions(govy.WithExampleProvider(...)),
 //	)
 //
 // WithFilteredPaths excludes specified property paths from documentation.
@@ -60,7 +59,6 @@
 //
 //   - Name: The type name
 //   - Properties: Array of PropertyDoc with path, type, validation rules, and documentation
-//   - Examples: Optional usage examples
 //   - Doc: Type-level documentation from godoc comments
 //
 // Each PropertyDoc includes:
