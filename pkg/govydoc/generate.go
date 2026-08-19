@@ -14,14 +14,7 @@ import (
 type ObjectDoc struct {
 	Name       string        `json:"name"`
 	Properties []PropertyDoc `json:"properties"`
-	Examples   []Example     `json:"examples,omitempty,omitzero"`
 	Doc        string        `json:"doc,omitempty"`
-}
-
-// Example describes a named usage example included in generated documentation.
-type Example struct {
-	Name    string `json:"name"`
-	Content string `json:"content"`
 }
 
 // PropertyDoc combines a govy property plan with its Go source documentation.
