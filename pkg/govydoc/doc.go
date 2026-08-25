@@ -52,6 +52,7 @@
 //
 // WithFilteredPaths excludes specified property paths from documentation.
 // GenerateGovyOptions passes options to the internal govy.Plan call.
+// WithGenerator reuses loaded Go packages across Generate calls.
 //
 // # Output Format
 //
