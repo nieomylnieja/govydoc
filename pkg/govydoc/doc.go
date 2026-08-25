@@ -52,6 +52,7 @@
 //
 // WithFilteredPaths excludes specified property paths from documentation.
 // GenerateGovyOptions passes options to the internal govy.Plan call.
+// WithOpaqueType treats a composite type as a terminal value with a caller-defined kind.
 //
 // # Output Format
 //

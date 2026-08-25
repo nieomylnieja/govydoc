@@ -195,6 +195,45 @@ func TestGenerate_MapTypes(t *testing.T) {
 	assert.Contains(t, paths, "$.data.*")
 }
 
+func TestWithOpaqueType(t *testing.T) {
+	validator := govy.New(
+		govy.For(func(value testmodels.StructWithRawMessage) json.RawMessage { return value.Payload }).
+			WithName("payload").
+			Rules(rules.SliceMinLength[json.RawMessage](1)),
+	).
+		WithName("StructWithRawMessage")
+
+	t.Run("default representation", func(t *testing.T) {
+		doc, err := Generate(validator)
+
+		require.NoError(t, err)
+		payload := requireProperty(t, doc, "$.payload")
+		assert.Equal(t, "[]uint8", payload.TypeInfo.Kind)
+		assert.Contains(t, propertyPaths(doc), "$.payload[*]")
+	})
+
+	t.Run("selected type only", func(t *testing.T) {
+		doc, err := Generate(validator, WithOpaqueType[json.RawMessage]("JSON"))
+
+		require.NoError(t, err)
+		payload := requireProperty(t, doc, "$.payload")
+		assert.Equal(t, govy.TypeInfo{
+			Name:    "RawMessage",
+			Kind:    "JSON",
+			Package: "encoding/json",
+		}, payload.TypeInfo)
+		assert.Empty(t, payload.ChildrenPaths)
+		assert.NotContains(t, propertyPaths(doc), "$.payload[*]")
+		payloadPointer := requireProperty(t, doc, "$.payloadPointer")
+		assert.Equal(t, "JSON", payloadPointer.TypeInfo.Kind)
+		assert.NotContains(t, propertyPaths(doc), "$.payloadPointer[*]")
+
+		bytes := requireProperty(t, doc, "$.bytes")
+		assert.Equal(t, "[]uint8", bytes.TypeInfo.Kind)
+		assert.Contains(t, propertyPaths(doc), "$.bytes[*]")
+	})
+}
+
 //go:embed testdata/generate_output.json
 var expectedGenerateOutput []byte
 
@@ -211,4 +250,15 @@ func propertyPaths(doc ObjectDoc) []string {
 		paths = append(paths, property.Path.String())
 	}
 	return paths
+}
+
+func requireProperty(t *testing.T, doc ObjectDoc, path string) PropertyDoc {
+	t.Helper()
+	for _, property := range doc.Properties {
+		if property.Path.String() == path {
+			return property
+		}
+	}
+	require.FailNow(t, "property not found", "path: %s", path)
+	return PropertyDoc{}
 }
