@@ -106,6 +106,18 @@ func TestParser_ParseMultipleTypes(t *testing.T) {
 	assert.Contains(t, universityDocs, moreModelsPackage+".University")
 }
 
+func TestParser_ParsePromotedFieldDocumentation(t *testing.T) {
+	parser := newTestParser(t)
+	docs, err := parser.Parse(reflect.TypeFor[testmodels.StructWithPromotedFields]())
+	require.NoError(t, err)
+
+	structDoc, found := docs[testModelsPackage+".StructWithPromotedFields"]
+	require.True(t, found)
+	promotedField, found := structDoc.StructFields["promotedValue"]
+	require.True(t, found)
+	assert.Contains(t, promotedField.Doc, "PromotedValue documents a promoted field.")
+}
+
 func TestDoc_Key(t *testing.T) {
 	t.Parallel()
 

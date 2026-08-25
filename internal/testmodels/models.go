@@ -66,3 +66,21 @@ type ListStruct struct {
 type MapStruct struct {
 	Data map[string]int `json:"data"`
 }
+
+// PromotedFields contains fields that another struct can promote.
+type PromotedFields struct {
+	// PromotedValue documents a promoted field.
+	PromotedValue string `json:"promotedValue"`
+}
+
+// StructWithPromotedFields embeds fields through a pointer.
+type StructWithPromotedFields struct {
+	*PromotedFields
+}
+
+// StructWithShadowedPromotedField declares a field that shadows an embedded field.
+type StructWithShadowedPromotedField struct {
+	// PromotedValue documents the direct field.
+	PromotedValue string `json:"promotedValue"`
+	*PromotedFields
+}
