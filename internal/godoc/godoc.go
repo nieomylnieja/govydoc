@@ -172,8 +172,34 @@ func (p *Parser) parseStructFields(
 			return err
 		}
 	}
+	addPromotedStructFieldDocs(goType, typeDoc, docs)
 
 	return nil
+}
+
+func addPromotedStructFieldDocs(structType reflect.Type, typeDoc *Doc, docs Docs) {
+	for _, field := range reflect.VisibleFields(structType) {
+		if len(field.Index) <= 1 {
+			continue
+		}
+		fieldName := getStructFieldName(field)
+		if fieldName == "" {
+			continue
+		}
+
+		ownerType := structType.FieldByIndex(field.Index[:len(field.Index)-1]).Type
+		for ownerType.Kind() == reflect.Pointer {
+			ownerType = ownerType.Elem()
+		}
+		ownerDoc, found := docs[Doc{Name: ownerType.Name(), Package: ownerType.PkgPath()}.Key()]
+		if !found {
+			continue
+		}
+		fieldDoc, found := ownerDoc.StructFields[fieldName]
+		if found {
+			typeDoc.StructFields[fieldName] = fieldDoc
+		}
+	}
 }
 
 func extractStructType(decl *ast.GenDecl, name string) (*ast.StructType, error) {
