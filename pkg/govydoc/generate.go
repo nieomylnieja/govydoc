@@ -1,10 +1,8 @@
 package govydoc
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
-	"sync"
 
 	"github.com/nobl9/govy/pkg/govy"
 	"github.com/nobl9/govy/pkg/jsonpath"
@@ -38,33 +36,11 @@ type GenerateOption func(options generateOptions) generateOptions
 type generateOptions struct {
 	govyPlanOptions []govy.PlanOption
 	filterPaths     []jsonpath.Path
-	generator       *Generator
-	generatorSet    bool
-}
-
-// Generator stores the parsed Go packages used to extract source documentation.
-// Create a Generator with [NewGenerator]. A Generator is safe for concurrent use.
-type Generator struct {
-	state *generatorState
-}
-
-type generatorState struct {
-	parser *godoc.Parser
-	mutex  sync.Mutex
-}
-
-// NewGenerator loads the Go packages reachable from the current module.
-// Reuse the returned Generator to avoid loading the same packages for each [Generate] call.
-func NewGenerator() (*Generator, error) {
-	parser, err := godoc.NewParser()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Go documentation parser: %w", err)
-	}
-	return &Generator{state: &generatorState{parser: parser}}, nil
 }
 
 // Generate returns documentation for the type handled by validator.
 // It returns an error when source documentation or the govy validation plan cannot be generated.
+// Generate uses the first successfully loaded source package snapshot for each module root until the process exits.
 func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (ObjectDoc, error) {
 	typ := reflect.TypeFor[T]()
 
@@ -74,18 +50,7 @@ func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (Objec
 	}
 
 	objectDoc := generateObjectDoc(typ)
-	generator := options.generator
-	if options.generatorSet && generator == nil {
-		return ObjectDoc{}, errors.New("generator cannot be nil")
-	}
-	if generator == nil {
-		var err error
-		generator, err = NewGenerator()
-		if err != nil {
-			return ObjectDoc{}, err
-		}
-	}
-	goDoc, err := generator.parse(typ)
+	goDoc, err := godoc.Parse(typ)
 	if err != nil {
 		return ObjectDoc{}, fmt.Errorf("failed to parse documentation for %s: %w", typ, err)
 	}
@@ -123,25 +88,6 @@ func WithFilteredPaths(paths ...string) GenerateOption {
 		}
 		return options
 	}
-}
-
-// WithGenerator returns an option that reuses generator for source documentation parsing.
-// The generator must be non-nil and created with [NewGenerator].
-func WithGenerator(generator *Generator) GenerateOption {
-	return func(options generateOptions) generateOptions {
-		options.generator = generator
-		options.generatorSet = true
-		return options
-	}
-}
-
-func (g *Generator) parse(typ reflect.Type) (godoc.Docs, error) {
-	if g == nil || g.state == nil || g.state.parser == nil {
-		return nil, errors.New("generator is not initialized; use NewGenerator")
-	}
-	g.state.mutex.Lock()
-	defer g.state.mutex.Unlock()
-	return g.state.parser.Parse(typ)
 }
 
 func (p PropertyDoc) key() string {

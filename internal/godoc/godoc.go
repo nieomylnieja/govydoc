@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 
 	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/packages"
@@ -33,7 +34,8 @@ type Doc struct {
 
 // Parser extracts Go documentation from the packages in a module.
 type Parser struct {
-	pkgs map[string]*goPackage
+	mutex sync.Mutex
+	pkgs  map[string]*goPackage
 }
 
 type goPackage struct {
@@ -47,7 +49,10 @@ func NewParser() (*Parser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to find module root: %w", err)
 	}
+	return newParser(root)
+}
 
+func newParser(root string) (*Parser, error) {
 	config := &packages.Config{
 		Dir: root,
 		Mode: packages.NeedName |
@@ -82,6 +87,9 @@ func (d Doc) Key() string {
 
 // Parse returns documentation for goType and the named types reachable through its fields.
 func (p *Parser) Parse(goType reflect.Type) (Docs, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	if goType == nil {
 		return nil, errors.New("type cannot be nil")
 	}

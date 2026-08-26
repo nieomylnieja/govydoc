@@ -142,30 +142,6 @@ which may still refer to filtered entries.
 `GenerateGovyOptions` forwards options to the validation-plan generator.
 See the available [Govy plan options][govy-plan-options].
 
-### Reuse loaded packages
-
-By default, each `Generate` call loads the current module's Go packages.
-Create one `Generator` when you need documentation for multiple validators:
-
-```go
-generator, err := govydoc.NewGenerator()
-if err != nil {
-	return err
-}
-reusePackages := govydoc.WithGenerator(generator)
-
-accountDoc, err := govydoc.Generate(accountValidator, reusePackages)
-if err != nil {
-	return err
-}
-teamDoc, err := govydoc.Generate(teamValidator, reusePackages)
-if err != nil {
-	return err
-}
-```
-
-A `Generator` is safe for concurrent `Generate` calls.
-
 ## Development
 
 Use the checked-in [Devbox][devbox] configuration

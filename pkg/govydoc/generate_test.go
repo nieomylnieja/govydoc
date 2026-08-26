@@ -196,7 +196,7 @@ func TestGenerate_MapTypes(t *testing.T) {
 	assert.Contains(t, paths, "$.data.*")
 }
 
-func TestWithGenerator_ConcurrentReuse(t *testing.T) {
+func TestGenerate_Concurrent(t *testing.T) {
 	teacherValidator := govy.New[testmodels.Teacher]().WithName("Teacher")
 	personValidator := govy.New[testmodels.Person]().WithName("Person")
 	expectedTeacher, err := Generate(teacherValidator)
@@ -204,16 +204,12 @@ func TestWithGenerator_ConcurrentReuse(t *testing.T) {
 	expectedPerson, err := Generate(personValidator)
 	require.NoError(t, err)
 
-	generator, err := NewGenerator()
-	require.NoError(t, err)
-	option := WithGenerator(generator)
-
 	generate := []func() (ObjectDoc, error){
 		func() (ObjectDoc, error) {
-			return Generate(teacherValidator, option)
+			return Generate(teacherValidator)
 		},
 		func() (ObjectDoc, error) {
-			return Generate(personValidator, option)
+			return Generate(personValidator)
 		},
 	}
 
@@ -231,14 +227,6 @@ func TestWithGenerator_ConcurrentReuse(t *testing.T) {
 	require.NoError(t, errs[1])
 	assert.JSONEq(t, mustMarshalJSON(t, expectedTeacher), mustMarshalJSON(t, docs[0]))
 	assert.JSONEq(t, mustMarshalJSON(t, expectedPerson), mustMarshalJSON(t, docs[1]))
-}
-
-func TestWithGenerator_Nil(t *testing.T) {
-	validator := govy.New[testmodels.Teacher]().WithName("Teacher")
-
-	_, err := Generate(validator, WithGenerator(nil))
-
-	require.EqualError(t, err, "generator cannot be nil")
 }
 
 func TestGenerate_PromotedFieldDocumentation(t *testing.T) {
