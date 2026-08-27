@@ -3,6 +3,7 @@ package govydoc
 import (
 	_ "embed"
 	"encoding/json"
+	"sync"
 	"testing"
 
 	"github.com/nobl9/govy/pkg/govy"
@@ -193,6 +194,39 @@ func TestGenerate_MapTypes(t *testing.T) {
 	paths := propertyPaths(doc)
 	assert.Contains(t, paths, "$.data.*~")
 	assert.Contains(t, paths, "$.data.*")
+}
+
+func TestGenerate_Concurrent(t *testing.T) {
+	teacherValidator := govy.New[testmodels.Teacher]().WithName("Teacher")
+	personValidator := govy.New[testmodels.Person]().WithName("Person")
+	expectedTeacher, err := Generate(teacherValidator)
+	require.NoError(t, err)
+	expectedPerson, err := Generate(personValidator)
+	require.NoError(t, err)
+
+	generate := []func() (ObjectDoc, error){
+		func() (ObjectDoc, error) {
+			return Generate(teacherValidator)
+		},
+		func() (ObjectDoc, error) {
+			return Generate(personValidator)
+		},
+	}
+
+	docs := make([]ObjectDoc, len(generate))
+	errs := make([]error, len(generate))
+	var waitGroup sync.WaitGroup
+	for i, generateDoc := range generate {
+		waitGroup.Go(func() {
+			docs[i], errs[i] = generateDoc()
+		})
+	}
+	waitGroup.Wait()
+
+	require.NoError(t, errs[0])
+	require.NoError(t, errs[1])
+	assert.JSONEq(t, mustMarshalJSON(t, expectedTeacher), mustMarshalJSON(t, docs[0]))
+	assert.JSONEq(t, mustMarshalJSON(t, expectedPerson), mustMarshalJSON(t, docs[1]))
 }
 
 func TestGenerate_PromotedFieldDocumentation(t *testing.T) {
