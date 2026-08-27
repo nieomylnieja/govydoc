@@ -234,6 +234,36 @@ func TestWithOpaqueType(t *testing.T) {
 	})
 }
 
+func TestGenerate_PromotedFieldDocumentation(t *testing.T) {
+	validator := govy.New[testmodels.StructWithPromotedFields]().WithName("StructWithPromotedFields")
+
+	doc, err := Generate(validator)
+
+	require.NoError(t, err)
+	for _, property := range doc.Properties {
+		if property.Path.String() == "$.promotedValue" {
+			assert.Equal(t, "PromotedValue documents a promoted field.", property.FieldDoc)
+			return
+		}
+	}
+	t.Fatal("promoted field property not found")
+}
+
+func TestGenerate_DirectFieldDocumentationShadowsPromotedField(t *testing.T) {
+	validator := govy.New[testmodels.StructWithShadowedPromotedField]().WithName("StructWithShadowedPromotedField")
+
+	doc, err := Generate(validator)
+
+	require.NoError(t, err)
+	for _, property := range doc.Properties {
+		if property.Path.String() == "$.promotedValue" {
+			assert.Equal(t, "PromotedValue documents the direct field.", property.FieldDoc)
+			return
+		}
+	}
+	t.Fatal("direct field property not found")
+}
+
 //go:embed testdata/generate_output.json
 var expectedGenerateOutput []byte
 
