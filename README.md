@@ -142,6 +142,20 @@ which may still refer to filtered entries.
 `GenerateGovyOptions` forwards options to the validation-plan generator.
 See the available [Govy plan options][govy-plan-options].
 
+Use `WithOpaqueType` when a named composite type represents one logical value:
+
+```go
+doc, err := govydoc.Generate(
+	validator,
+	govydoc.WithOpaqueType[json.RawMessage]("JSON"),
+)
+```
+
+The option assigns the supplied kind to the type and stops traversal at that type.
+The example generates one `RawMessage` property with kind `JSON`.
+It does not generate a byte-element property below `RawMessage`.
+Pointer layers do not affect type matching.
+
 ## Development
 
 Use the checked-in [Devbox][devbox] configuration

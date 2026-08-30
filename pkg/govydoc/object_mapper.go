@@ -11,11 +11,16 @@ import (
 )
 
 type objectMapper struct {
-	properties []PropertyDoc
+	properties      []PropertyDoc
+	opaqueTypeKinds map[reflect.Type]string
+	opaquePathKinds map[string]string
 }
 
-func newObjectMapper() *objectMapper {
-	return &objectMapper{}
+func newObjectMapper(opaqueTypeKinds map[reflect.Type]string) *objectMapper {
+	return &objectMapper{
+		opaqueTypeKinds: opaqueTypeKinds,
+		opaquePathKinds: make(map[string]string),
+	}
 }
 
 func (o *objectMapper) mapType(typ reflect.Type, path jsonpath.Path) {
@@ -26,6 +31,11 @@ func (o *objectMapper) mapType(typ reflect.Type, path jsonpath.Path) {
 	doc := PropertyDoc{}
 	doc.Path = path
 	doc = setTypeInfo(doc, typ)
+	if kind, ok := o.opaqueTypeKinds[typ]; ok {
+		o.properties = append(o.properties, doc)
+		o.opaquePathKinds[path.String()] = kind
+		return
+	}
 	o.properties = append(o.properties, doc)
 
 	switch typ.Kind() {

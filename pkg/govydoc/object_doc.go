@@ -7,22 +7,25 @@ import (
 	"github.com/nobl9/govy/pkg/jsonpath"
 )
 
-func generateObjectDoc(goType reflect.Type) ObjectDoc {
+func generateObjectDoc(
+	goType reflect.Type,
+	opaqueTypeKinds map[reflect.Type]string,
+) (doc ObjectDoc, opaquePathKinds map[string]string) {
 	for goType.Kind() == reflect.Pointer {
 		goType = goType.Elem()
 	}
-	mapper := newObjectMapper()
+	mapper := newObjectMapper(opaqueTypeKinds)
 	mapper.mapType(goType, jsonpath.Parse("$"))
 
-	objectDoc := ObjectDoc{
+	doc = ObjectDoc{
 		Properties: mapper.properties,
 	}
-	for i, property := range objectDoc.Properties {
-		childrenPaths := findPropertyChildrenPaths(property.Path, objectDoc.Properties)
+	for i, property := range doc.Properties {
+		childrenPaths := findPropertyChildrenPaths(property.Path, doc.Properties)
 		property.ChildrenPaths = childrenPaths
-		objectDoc.Properties[i] = property
+		doc.Properties[i] = property
 	}
-	return objectDoc
+	return doc, mapper.opaquePathKinds
 }
 
 func findPropertyChildrenPaths(parent jsonpath.Path, properties []PropertyDoc) []string {

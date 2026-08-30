@@ -1,6 +1,7 @@
 package testmodels
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/nieomylnieja/govydoc/internal/testmodels/moremodels"
@@ -65,6 +66,13 @@ type ListStruct struct {
 // MapStruct contains a map of data.
 type MapStruct struct {
 	Data map[string]int `json:"data"`
+}
+
+// StructWithRawMessage contains an opaque JSON value.
+type StructWithRawMessage struct {
+	Payload        json.RawMessage  `json:"payload"`
+	PayloadPointer *json.RawMessage `json:"payloadPointer"`
+	Bytes          []byte           `json:"bytes"`
 }
 
 // PromotedFields contains fields that another struct can promote.
