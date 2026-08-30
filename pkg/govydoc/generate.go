@@ -36,6 +36,7 @@ type GenerateOption func(options generateOptions) generateOptions
 type generateOptions struct {
 	govyPlanOptions []govy.PlanOption
 	filterPaths     []jsonpath.Path
+	opaqueTypeKinds map[reflect.Type]string
 }
 
 // Generate returns documentation for the type handled by validator.
@@ -48,7 +49,7 @@ func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (Objec
 		options = opt(options)
 	}
 
-	objectDoc := generateObjectDoc(typ)
+	objectDoc, opaquePathKinds := generateObjectDoc(typ, options.opaqueTypeKinds)
 	goDocParser, err := godoc.NewParser()
 	if err != nil {
 		return ObjectDoc{}, fmt.Errorf("failed to create Go documentation parser: %w", err)
@@ -65,6 +66,7 @@ func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (Objec
 	objectDoc.extendWithValidationPlan(plan)
 
 	mergeDocs(&objectDoc, goDoc)
+	applyOpaqueTypeKinds(&objectDoc, opaquePathKinds)
 	objectDoc = postProcessProperties(
 		objectDoc,
 		options.filterPaths,
@@ -89,6 +91,23 @@ func WithFilteredPaths(paths ...string) GenerateOption {
 		for _, path := range paths {
 			options.filterPaths = append(options.filterPaths, jsonpath.Parse(path))
 		}
+		return options
+	}
+}
+
+// WithOpaqueType returns an option that treats T as a terminal type with the supplied semantic kind.
+// Pointer layers are ignored when matching T. The generated documentation does not include properties
+// from T's underlying struct, slice, or map representation.
+func WithOpaqueType[T any](kind string) GenerateOption {
+	typ := reflect.TypeFor[T]()
+	for typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	return func(options generateOptions) generateOptions {
+		if options.opaqueTypeKinds == nil {
+			options.opaqueTypeKinds = make(map[reflect.Type]string)
+		}
+		options.opaqueTypeKinds[typ] = kind
 		return options
 	}
 }
@@ -120,6 +139,14 @@ func mergeDocs(objectDoc *ObjectDoc, goDocs godoc.Docs) {
 			}
 		}
 		objectDoc.Properties[i] = property
+	}
+}
+
+func applyOpaqueTypeKinds(objectDoc *ObjectDoc, opaquePathKinds map[string]string) {
+	for i := range objectDoc.Properties {
+		if kind, found := opaquePathKinds[objectDoc.Properties[i].Path.String()]; found {
+			objectDoc.Properties[i].TypeInfo.Kind = kind
+		}
 	}
 }
 
