@@ -3,6 +3,7 @@ package godoc
 import (
 	"go/ast"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -104,6 +105,36 @@ func TestParser_ParseMultipleTypes(t *testing.T) {
 
 	assert.Contains(t, teacherDocs, testModelsPackage+".Teacher")
 	assert.Contains(t, universityDocs, moreModelsPackage+".University")
+}
+
+func TestParser_ParseConcurrent(t *testing.T) {
+	const calls = 16
+	parser := newTestParser(t)
+	for _, pkg := range parser.pkgs {
+		require.Nil(t, pkg.commentParser)
+	}
+
+	types := []reflect.Type{
+		reflect.TypeFor[testmodels.Teacher](),
+		reflect.TypeFor[testmodels.Person](),
+	}
+	docs := make([]Docs, calls)
+	errs := make([]error, calls)
+	start := make(chan struct{})
+	var waitGroup sync.WaitGroup
+	for i := range calls {
+		waitGroup.Go(func() {
+			<-start
+			docs[i], errs[i] = parser.Parse(types[i%len(types)])
+		})
+	}
+	close(start)
+	waitGroup.Wait()
+
+	for i := range calls {
+		require.NoError(t, errs[i])
+		assert.Contains(t, docs[i], testModelsPackage+"."+types[i%len(types)].Name())
+	}
 }
 
 func TestParser_ParsePromotedFieldDocumentation(t *testing.T) {

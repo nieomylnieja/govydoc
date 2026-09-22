@@ -41,6 +41,7 @@ type generateOptions struct {
 
 // Generate returns documentation for the type handled by validator.
 // It returns an error when source documentation or the govy validation plan cannot be generated.
+// Generate uses the first successfully loaded source package snapshot for each module root until the process exits.
 func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (ObjectDoc, error) {
 	typ := reflect.TypeFor[T]()
 
@@ -50,11 +51,7 @@ func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (Objec
 	}
 
 	objectDoc, opaquePathKinds := generateObjectDoc(typ, options.opaqueTypeKinds)
-	goDocParser, err := godoc.NewParser()
-	if err != nil {
-		return ObjectDoc{}, fmt.Errorf("failed to create Go documentation parser: %w", err)
-	}
-	goDoc, err := goDocParser.Parse(typ)
+	goDoc, err := godoc.Parse(typ)
 	if err != nil {
 		return ObjectDoc{}, fmt.Errorf("failed to parse documentation for %s: %w", typ, err)
 	}
