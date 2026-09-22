@@ -3,6 +3,7 @@ package govydoc
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/nobl9/govy/pkg/govy"
 	"github.com/nobl9/govy/pkg/jsonpath"
@@ -28,6 +29,10 @@ type PropertyDoc struct {
 	DeprecatedDoc string `json:"deprecatedDoc,omitempty"`
 	// ChildrenPaths contains the JSON paths of the property's immediate children.
 	ChildrenPaths []string `json:"childrenPaths,omitempty,omitzero"`
+	// ComponentPlans preserves validation plans below a type registered with [WithOpaqueType].
+	// Their original absolute paths identify internal components, not serialized child properties.
+	// Component rules and values do not apply to the opaque value as a whole.
+	ComponentPlans []govy.PropertyPlan `json:"componentPlans,omitempty"`
 }
 
 // GenerateOption configures [Generate].
@@ -60,7 +65,7 @@ func Generate[T any](validator govy.Validator[T], opts ...GenerateOption) (Objec
 	if err != nil {
 		return ObjectDoc{}, fmt.Errorf("failed to generate validation plan for %s: %w", typ, err)
 	}
-	objectDoc.extendWithValidationPlan(plan)
+	objectDoc.extendWithValidationPlan(plan, opaquePathKinds)
 
 	mergeDocs(&objectDoc, goDoc)
 	applyOpaqueTypeKinds(&objectDoc, opaquePathKinds)
@@ -93,8 +98,9 @@ func WithFilteredPaths(paths ...string) GenerateOption {
 }
 
 // WithOpaqueType returns an option that treats T as a terminal type with the supplied semantic kind.
-// Pointer layers are ignored when matching T. The generated documentation does not include properties
-// from T's underlying struct, slice, or map representation.
+// Pointer layers are ignored when matching T. Properties from T's underlying representation
+// are excluded from [ObjectDoc.Properties]. Their validation plans remain in [PropertyDoc.ComponentPlans],
+// separate from rules that apply to the opaque value as a whole.
 func WithOpaqueType[T any](kind string) GenerateOption {
 	typ := reflect.TypeFor[T]()
 	for typ.Kind() == reflect.Pointer {
@@ -147,18 +153,26 @@ func applyOpaqueTypeKinds(objectDoc *ObjectDoc, opaquePathKinds map[string]strin
 	}
 }
 
-func (o *ObjectDoc) extendWithValidationPlan(plan *govy.ValidatorPlan) {
+func (o *ObjectDoc) extendWithValidationPlan(plan *govy.ValidatorPlan, opaquePathKinds map[string]string) {
 	o.Name = plan.Name
 	for _, propPlan := range plan.Properties {
 		for i, propDoc := range o.Properties {
-			if !propPlan.Path.Equal(propDoc.Path) {
+			if propPlan.Path.Equal(propDoc.Path) {
+				o.Properties[i].PropertyPlan = *propPlan
+				break
+			}
+			if _, opaque := opaquePathKinds[propDoc.Path.String()]; !opaque {
 				continue
 			}
-			o.Properties[i] = PropertyDoc{
-				PropertyPlan:  *propPlan,
-				ChildrenPaths: propDoc.ChildrenPaths,
+			if isDescendantPath(propPlan.Path, propDoc.Path) {
+				o.Properties[i].ComponentPlans = append(o.Properties[i].ComponentPlans, *propPlan)
+				break
 			}
-			break
 		}
 	}
+}
+
+func isDescendantPath(path, parent jsonpath.Path) bool {
+	relative, found := strings.CutPrefix(path.String(), parent.String())
+	return found && (strings.HasPrefix(relative, ".") || strings.HasPrefix(relative, "["))
 }

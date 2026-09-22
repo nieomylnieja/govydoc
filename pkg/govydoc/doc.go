@@ -53,6 +53,7 @@
 // WithFilteredPaths excludes specified property paths from documentation.
 // GenerateGovyOptions passes options to the internal govy.Plan call.
 // WithOpaqueType treats a composite type as a terminal value with a caller-defined kind.
+// Validation plans for its internal components remain in PropertyDoc.ComponentPlans.
 //
 // # Output Format
 //
@@ -71,4 +72,5 @@
 //   - FieldDoc: Inline documentation from the struct field
 //   - DeprecatedDoc: Contents of "Deprecated:" comments
 //   - ChildrenPaths: Paths of immediate nested properties
+//   - ComponentPlans: Internal validation plans for types registered with WithOpaqueType
 package govydoc

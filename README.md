@@ -101,6 +101,8 @@ and source documentation:
 - `FieldDoc` contains the comment attached to the struct field.
 - `DeprecatedDoc` contains text extracted from a `Deprecated:` marker.
 - `ChildrenPaths` lists paths structurally associated with the property.
+- `ComponentPlans` preserves validation plans
+  for internal components of opaque types.
 
 For slices, `ChildrenPaths` may contain both the field path
 and its wildcard element path at the same ancestor level.
@@ -155,6 +157,23 @@ The option assigns the supplied kind to the type and stops traversal at that typ
 The example generates one `RawMessage` property with kind `JSON`.
 It does not generate a byte-element property below `RawMessage`.
 Pointer layers do not affect type matching.
+
+Validation plans below an opaque property remain in its `ComponentPlans`
+(`componentPlans` in JSON).
+Each component plan keeps its original absolute validation path,
+type information, rules, conditions, values, examples, and hidden-value flag.
+These paths describe internal components, not serialized child properties.
+They do not add entries to `ObjectDoc.Properties` or `ChildrenPaths`.
+
+For example, a duration encoded as one string can have component plans
+at `$.duration.unit` and `$.duration.value`.
+A unit enum or numeric bound applies to that component.
+A required component does not make the duration field required.
+The opaque property's own rules, values, and examples remain separate.
+
+Component plans are retained only for types registered with `WithOpaqueType`.
+`WithFilteredPaths` removes the complete opaque property when its path matches.
+It does not filter component plans individually.
 
 ## Development
 
