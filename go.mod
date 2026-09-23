@@ -3,7 +3,7 @@ module github.com/nieomylnieja/govydoc
 go 1.26.0
 
 require (
-	github.com/nobl9/govy v0.29.0
+	github.com/nobl9/govy v0.30.0
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/tools v0.50.0
 )
