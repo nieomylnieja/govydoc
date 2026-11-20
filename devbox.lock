@@ -1,51 +1,41 @@
 {
   "lockfile_version": "1",
   "packages": {
-    "cspell@9.7.0": {
-      "last_modified": "2026-03-15T17:58:12Z",
-      "resolved": "github:NixOS/nixpkgs/a07d4ce6bee67d7c838a8a5796e75dff9caa21ef#cspell",
+    "cspell@10.5.1": {
+      "last_modified": "2026-11-19T13:46:25Z",
+      "resolved": "github:NixOS/nixpkgs/19cfded70b91ca0981373973c5b1efffdd4d6647#cspell",
       "source": "devbox-search",
-      "version": "9.7.0",
+      "version": "10.5.1",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/hcfz8l7ydidcswmlfpi96fpixca8sgag-cspell-9.7.0",
+              "path": "/nix/store/5wqqkpd3is0llsa7kh2pc106gmc5d96w-cspell-10.5.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/hcfz8l7ydidcswmlfpi96fpixca8sgag-cspell-9.7.0"
+          "store_path": "/nix/store/5wqqkpd3is0llsa7kh2pc106gmc5d96w-cspell-10.5.1"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/6x5f79bhnnbprmnylrg5hsqirsxa1y3n-cspell-9.7.0",
+              "path": "/nix/store/saj6s3f2p8yd7rpiwrd0rwlgmrykz8cd-cspell-10.5.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/6x5f79bhnnbprmnylrg5hsqirsxa1y3n-cspell-9.7.0"
-        },
-        "x86_64-darwin": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/lhbm1hr94xa4mrmapvnbxaxrs94wp31r-cspell-9.7.0",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/lhbm1hr94xa4mrmapvnbxaxrs94wp31r-cspell-9.7.0"
+          "store_path": "/nix/store/saj6s3f2p8yd7rpiwrd0rwlgmrykz8cd-cspell-10.5.1"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/db0x7r114m4gwmvg9li44k767zn9adjc-cspell-9.7.0",
+              "path": "/nix/store/jws7i3yhqsn8v2zdgsmdsylxyqvc3y5r-cspell-10.5.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/db0x7r114m4gwmvg9li44k767zn9adjc-cspell-9.7.0"
+          "store_path": "/nix/store/jws7i3yhqsn8v2zdgsmdsylxyqvc3y5r-cspell-10.5.1"
         }
       }
     },
